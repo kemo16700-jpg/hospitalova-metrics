@@ -1,396 +1,176 @@
 import os
-import json
 import asyncio
-from datetime import datetime, time
 import pytz
-from telegram import Bot, Update, InlineKeyboardButton, InlineKeyboardMarkup
+from datetime import datetime
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# ─── CONFIG ───
-TOKEN = os.environ.get("BOT_TOKEN", "8429196192:AAFzul-1ObLXZ4uJxkJ-CD3BhXQW2LtWBSg")
+TOKEN = "8429196192:AAFzul-1ObLXZ4uJxkJ-CD3BhXQW2LtWBSg"
 CHANNEL_ID = -1003826788764
 EGYPT_TZ = pytz.timezone("Africa/Cairo")
 
-# ─── CURRICULUM ───
 TASKS = [
-    {
-        "id": 1,
-        "phase": "المرحلة الأولى — الأساسيات",
-        "title": "مقدمة في الإحصاء الطبي التطبيقي",
-        "channel": "Dr. Mohamed Elsherif",
-        "url": "https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz",
-        "desc": "ابدأ بالفيديو الأول من الكورس — مقدمة عن الإحصاء ولماذا يحتاجه الطبيب.",
-        "question": "ما الفرق بين الإحصاء الوصفي والاستنتاجي؟",
-        "options": ["الوصفي يلخص البيانات، الاستنتاجي يعمم النتائج", "الوصفي للأرقام فقط، الاستنتاجي للنصوص", "لا فرق بينهما", "الوصفي للمرضى، الاستنتاجي للأطباء"],
-        "correct": 0
-    },
-    {
-        "id": 2,
-        "phase": "المرحلة الأولى — الأساسيات",
-        "title": "أنواع البيانات",
-        "channel": "Dr. Mohamed Elsherif",
-        "url": "https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz",
-        "desc": "تعلّم الفرق بين Nominal وOrdinal وContinuous data — أساس أي تحليل.",
-        "question": "درجة الألم من 1 لـ 10 — أي نوع بيانات هي؟",
-        "options": ["Nominal", "Ordinal", "Continuous", "Binary"],
-        "correct": 1
-    },
-    {
-        "id": 3,
-        "phase": "المرحلة الأولى — الأساسيات",
-        "title": "المتوسط والوسيط والمنوال",
-        "channel": "Dr. Mohamed Elsherif",
-        "url": "https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz",
-        "desc": "Mean وMedian وMode — متى تستخدم كل واحدة في الأبحاث الطبية؟",
-        "question": "في وجود outliers كثيرة — أي مقياس أفضل؟",
-        "options": ["Mean", "Median", "Mode", "Range"],
-        "correct": 1
-    },
-    {
-        "id": 4,
-        "phase": "المرحلة الأولى — الأساسيات",
-        "title": "التوزيع الطبيعي",
-        "channel": "Dr. Mohamed Elsherif",
-        "url": "https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz",
-        "desc": "Normal Distribution — ليه مهم جداً في الإحصاء الطبي وكيف تتعرف عليه.",
-        "question": "في التوزيع الطبيعي — كم نسبة البيانات داخل انحرافين معياريين؟",
-        "options": ["68%", "90%", "95%", "99%"],
-        "correct": 2
-    },
-    {
-        "id": 5,
-        "phase": "المرحلة الأولى — الأساسيات",
-        "title": "الـ P-value",
-        "channel": "Dr. Mohamed Elsherif",
-        "url": "https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz",
-        "desc": "P-value — أكتر مصطلح بيتغلط فيه الناس. هنفهمه صح النهارده.",
-        "question": "P-value = 0.03 معناها؟",
-        "options": ["الفرق كبير جداً", "احتمال 3% إن النتيجة بالصدفة", "الدراسة مهمة", "النتيجة خاطئة بنسبة 3%"],
-        "correct": 1
-    },
-    {
-        "id": 6,
-        "phase": "المرحلة الأولى — الأساسيات",
-        "title": "Confidence Intervals",
-        "channel": "Dr. Mohamed Elsherif",
-        "url": "https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz",
-        "desc": "Confidence Intervals — ليه أهم من الـ P-value وحده في تفسير نتايج الأبحاث.",
-        "question": "95% CI يعني؟",
-        "options": ["النتيجة صح 95%", "لو كررنا الدراسة 100 مرة، 95 منهم هيطلع نفس الـ interval", "الخطأ 5% بس", "العينة كافية 95%"],
-        "correct": 1
-    },
-    {
-        "id": 7,
-        "phase": "المرحلة الثانية — الإحصاء الحيوي",
-        "title": "تصميم الدراسات",
-        "channel": "Eighth Lab",
-        "url": "https://www.youtube.com/playlist?list=PLt0thylmbOcnPXco89AvM6c1sN1pr0vZF",
-        "desc": "RCT وCohort وCase-Control — متى تستخدم كل نوع وما هي قوة كل دراسة.",
-        "question": "أقوى نوع دراسة لإثبات السببية؟",
-        "options": ["Case Report", "Cohort Study", "RCT", "Cross-sectional"],
-        "correct": 2
-    },
-    {
-        "id": 8,
-        "phase": "المرحلة الثانية — الإحصاء الحيوي",
-        "title": "Bias وConfounding",
-        "channel": "Eighth Lab",
-        "url": "https://www.youtube.com/playlist?list=PLt0thylmbOcnPXco89AvM6c1sN1pr0vZF",
-        "desc": "أكبر أسباب غلط الأبحاث — تعلّم تتعرف عليهم وتتجنبهم في بحثك.",
-        "question": "Confounding variable هو؟",
-        "options": ["متغير تم قياسه بغلط", "متغير مرتبط بالـ exposure والـ outcome معاً", "متغير غير مهم", "نوع من Bias"],
-        "correct": 1
-    },
-    {
-        "id": 9,
-        "phase": "المرحلة الثانية — الإحصاء الحيوي",
-        "title": "Sample Size وPower",
-        "channel": "Eighth Lab",
-        "url": "https://www.youtube.com/playlist?list=PLt0thylmbOcnPXco89AvM6c1sN1pr0vZF",
-        "desc": "إزاي تحسب حجم العينة المناسب — سؤال لازم تعرف إجابته قبل أي بحث.",
-        "question": "Power of a study = 80% معناها؟",
-        "options": ["الدراسة دقيقة 80%", "80% احتمال نكتشف فرق حقيقي لو موجود", "العينة 80% كافية", "خطأ النوع الثاني 80%"],
-        "correct": 1
-    },
-    {
-        "id": 10,
-        "phase": "المرحلة الثالثة — التطبيق",
-        "title": "SPSS — المقدمة",
-        "channel": "BioStat 101",
-        "url": "https://www.youtube.com/watch?v=R2Ik-lLnaao&list=PLnruVGowQileyzRfxZbYQZzCasezy-d8s",
-        "desc": "أول خطوة في SPSS — إزاي تدخل البيانات وتعمل analysis بسيطة.",
-        "question": "SPSS بيُستخدم بشكل رئيسي في؟",
-        "options": ["تصميم المواقع", "تحليل البيانات الإحصائية", "كتابة الأكواد", "رسم الجداول فقط"],
-        "correct": 1
-    },
-    {
-        "id": 11,
-        "phase": "المرحلة الثالثة — التطبيق",
-        "title": "BioStat 101 — Descriptive Statistics",
-        "channel": "BioStat 101",
-        "url": "https://www.youtube.com/watch?v=F7fcKHDnAz4&list=PL9GrBMsvivVWZ2Ztg5VXzKhxVF2F1q5Ld",
-        "desc": "Descriptive Statistics في التطبيق الفعلي — تلخيص البيانات الطبية بشكل صح.",
-        "question": "Descriptive Statistics تشمل؟",
-        "options": ["Hypothesis Testing فقط", "Mean وSD وFrequencies", "Regression فقط", "P-value فقط"],
-        "correct": 1
-    },
-    {
-        "id": 12,
-        "phase": "المرحلة الرابعة — R Programming",
-        "title": "مقدمة في R",
-        "channel": "محمد بشر زينه",
-        "url": "https://youtube.com/playlist?list=PLiEE9iF6uemvnKoYt-tpU6npcEog4yEfM",
-        "desc": "أول تاسك في R — تثبيت البرنامج وأول سطر كود. الجزء الأصعب هو البداية!",
-        "question": "R مقارنةً بـ SPSS؟",
-        "options": ["أصعب وأقل فائدة", "أسهل لكن أقل دقة", "أقوى وأكثر مرونة للأبحاث المتقدمة", "نفس الشيء تماماً"],
-        "correct": 2
-    },
+    {"id":1,"phase":"المرحلة الأولى","title":"مقدمة في الإحصاء الطبي","channel":"Dr. Mohamed Elsherif","url":"https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz","desc":"ابدأ بالفيديو الأول — مقدمة عن الإحصاء ولماذا يحتاجه الطبيب.","question":"ما الفرق بين الإحصاء الوصفي والاستنتاجي؟","options":["الوصفي يلخص البيانات، الاستنتاجي يعمم النتائج","الوصفي للأرقام فقط","لا فرق بينهما","الوصفي للمرضى فقط"],"correct":0},
+    {"id":2,"phase":"المرحلة الأولى","title":"أنواع البيانات","channel":"Dr. Mohamed Elsherif","url":"https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz","desc":"Nominal وOrdinal وContinuous — أساس أي تحليل إحصائي.","question":"درجة الألم من 1 لـ 10 أي نوع بيانات؟","options":["Nominal","Ordinal","Continuous","Binary"],"correct":1},
+    {"id":3,"phase":"المرحلة الأولى","title":"P-value","channel":"Dr. Mohamed Elsherif","url":"https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz","desc":"P-value — أكتر مصطلح بيتغلط فيه الناس. هنفهمه صح.","question":"P-value = 0.03 معناها؟","options":["الفرق كبير جداً","احتمال 3% إن النتيجة بالصدفة","الدراسة مهمة جداً","النتيجة خاطئة 3%"],"correct":1},
+    {"id":4,"phase":"المرحلة الأولى","title":"Confidence Intervals","channel":"Dr. Mohamed Elsherif","url":"https://www.youtube.com/playlist?list=PLnruVGowQilf3qPLK-Jhz2Suc06DBH5Cz","desc":"CI — ليه أهم من الـ P-value وحده في تفسير الأبحاث.","question":"95% CI يعني؟","options":["النتيجة صح 95%","لو كررنا 100 مرة 95 منهم نفس الـ interval","الخطأ 5% بس","العينة كافية 95%"],"correct":1},
+    {"id":5,"phase":"المرحلة الثانية","title":"تصميم الدراسات","channel":"Eighth Lab","url":"https://www.youtube.com/playlist?list=PLt0thylmbOcnPXco89AvM6c1sN1pr0vZF","desc":"RCT وCohort وCase-Control — متى تستخدم كل نوع.","question":"أقوى نوع دراسة لإثبات السببية؟","options":["Case Report","Cohort Study","RCT","Cross-sectional"],"correct":2},
+    {"id":6,"phase":"المرحلة الثانية","title":"Bias وConfounding","channel":"Eighth Lab","url":"https://www.youtube.com/playlist?list=PLt0thylmbOcnPXco89AvM6c1sN1pr0vZF","desc":"أكبر أسباب غلط الأبحاث — تعلّم تتعرف عليهم.","question":"Confounding variable هو؟","options":["متغير تم قياسه بغلط","متغير مرتبط بالـ exposure والـ outcome معاً","متغير غير مهم","نوع من Bias"],"correct":1},
+    {"id":7,"phase":"المرحلة الثالثة","title":"SPSS — المقدمة","channel":"BioStat 101","url":"https://www.youtube.com/watch?v=R2Ik-lLnaao&list=PLnruVGowQileyzRfxZbYQZzCasezy-d8s","desc":"أول خطوة في SPSS — إزاي تدخل البيانات وتعمل analysis.","question":"SPSS بيستخدم بشكل رئيسي في؟","options":["تصميم المواقع","تحليل البيانات الإحصائية","كتابة الأكواد","رسم الجداول فقط"],"correct":1},
+    {"id":8,"phase":"المرحلة الثالثة","title":"BioStat 101 — Descriptive Statistics","channel":"BioStat 101","url":"https://www.youtube.com/watch?v=F7fcKHDnAz4&list=PL9GrBMsvivVWZ2Ztg5VXzKhxVF2F1q5Ld","desc":"Descriptive Statistics في التطبيق الفعلي.","question":"Descriptive Statistics تشمل؟","options":["Hypothesis Testing فقط","Mean وSD وFrequencies","Regression فقط","P-value فقط"],"correct":1},
+    {"id":9,"phase":"المرحلة الرابعة","title":"مقدمة في R","channel":"محمد بشر زينه","url":"https://youtube.com/playlist?list=PLiEE9iF6uemvnKoYt-tpU6npcEog4yEfM","desc":"أول تاسك في R — تثبيت البرنامج وأول سطر كود.","question":"R مقارنة بـ SPSS؟","options":["أصعب وأقل فائدة","أسهل لكن أقل دقة","أقوى وأكثر مرونة للأبحاث المتقدمة","نفس الشيء تماماً"],"correct":2},
 ]
 
-# ─── USER DATA (in-memory) ───
-user_data = {}  # {user_id: {"task_index": int, "score": int, "name": str}}
-answered_questions = {}  # {user_id: set of task_ids answered}
+user_data = {}
+answered = {}
 
-def get_user(user_id):
-    if user_id not in user_data:
-        user_data[user_id] = {"task_index": 0, "score": 0, "name": ""}
-    if user_id not in answered_questions:
-        answered_questions[user_id] = set()
-    return user_data[user_id]
+def get_user(uid, name=""):
+    if uid not in user_data:
+        user_data[uid] = {"task_index": 0, "score": 0, "name": name}
+    if uid not in answered:
+        answered[uid] = set()
+    return user_data[uid]
 
-# ─── SEND TASK TO CHANNEL ───
-async def send_task_to_channel(bot: Bot, task_index: int):
-    if task_index >= len(TASKS):
-        await bot.send_message(
-            chat_id=CHANNEL_ID,
-            text="🎉 *مبروك! انتهى المنهج الكامل لـ Hospitalova Metrics*\n\nاتابعونا للمحتوى القادم! 🧪",
-            parse_mode="Markdown"
-        )
-        return
-
-    task = TASKS[task_index]
-    msg = f"""🧪 *Hospitalova Metrics — تاسك #{task['id']}*
-
-📚 *{task['phase']}*
-━━━━━━━━━━━━━━━━
-🎯 *{task['title']}*
-👨‍🏫 {task['channel']}
-
-{task['desc']}
-
-🔗 [افتح الفيديو هنا]({task['url']})
-━━━━━━━━━━━━━━━━
-⏰ السؤال هييجي بعد يومين — استعد! 💪"""
-
-    await bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=msg,
-        parse_mode="Markdown",
-        disable_web_page_preview=False
-    )
-
-# ─── SEND QUESTION TO CHANNEL ───
-async def send_question_to_channel(bot: Bot, task_index: int):
-    if task_index >= len(TASKS):
-        return
-    task = TASKS[task_index]
-    keyboard = [
-        [InlineKeyboardButton(f"{i+1}. {opt}", callback_data=f"ch_{task['id']}_{i}")]
-        for i, opt in enumerate(task['options'])
-    ]
-    msg = f"""❓ *سؤال على التاسك #{task['id']}*
-
-*{task['question']}*
-
-👇 اختار الإجابة الصح:"""
-    await bot.send_message(
-        chat_id=CHANNEL_ID,
-        text=msg,
-        parse_mode="Markdown",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
-
-# ─── /start ───
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+    uid = update.effective_user.id
     name = update.effective_user.first_name or "صديقي"
-    user = get_user(user_id)
-    user["name"] = name
-
-    task_index = user["task_index"]
-    if task_index >= len(TASKS):
-        await update.message.reply_text(
-            f"🎉 مبروك يا {name}! خلصت المنهج كامل!\nنقطك: {user['score']} / {len(TASKS)}"
-        )
+    user = get_user(uid, name)
+    idx = user["task_index"]
+    if idx >= len(TASKS):
+        await update.message.reply_text(f"مبروك يا {name}! خلصت المنهج!\nنقطك: {user['score']}/{len(TASKS)}")
         return
-
-    task = TASKS[task_index]
-    msg = f"""أهلاً يا {name}! 👋
-
-مرحباً بك في *Hospitalova Metrics* 🧪
-
-هتبدأ من *التاسك #{task['id']}*:
-📚 {task['phase']}
-🎯 {task['title']}
-
-🔗 [افتح الفيديو]({task['url']})
-
-بعد ما تخلص ابعت /done ✅"""
-
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-# ─── /done ───
-async def done(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user = get_user(user_id)
-    task_index = user["task_index"]
-
-    if task_index >= len(TASKS):
-        await update.message.reply_text("🎉 خلصت المنهج كامل! مبروك!")
-        return
-
-    task = TASKS[task_index]
-    if task["id"] in answered_questions[user_id]:
-        await update.message.reply_text("✅ الفيديو ده خلصته بالفعل!")
-        return
-
-    keyboard = [
-        [InlineKeyboardButton(f"{i+1}. {opt}", callback_data=f"pr_{task['id']}_{i}_{user_id}")]
-        for i, opt in enumerate(task['options'])
-    ]
+    task = TASKS[idx]
     await update.message.reply_text(
-        f"ممتاز! 🎯 سؤال سريع على التاسك:\n\n*{task['question']}*",
-        parse_mode="Markdown",
+        f"أهلاً يا {name}!\nمرحباً بك في Hospitalova Metrics\n\n"
+        f"هتبدأ من التاسك #{task['id']}:\n{task['phase']}\n{task['title']}\n\n"
+        f"افتح الفيديو: {task['url']}\n\nبعد ما تخلص ابعت /done",
+    )
+
+async def done_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    user = get_user(uid)
+    idx = user["task_index"]
+    if idx >= len(TASKS):
+        await update.message.reply_text("خلصت المنهج كامل! مبروك!")
+        return
+    task = TASKS[idx]
+    if task["id"] in answered[uid]:
+        await update.message.reply_text("الفيديو ده خلصته بالفعل!")
+        return
+    keyboard = [[InlineKeyboardButton(f"{i+1}. {opt}", callback_data=f"pr_{task['id']}_{i}_{uid}")] for i, opt in enumerate(task["options"])]
+    await update.message.reply_text(
+        f"سؤال سريع:\n\n{task['question']}",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
-# ─── CALLBACK ───
-async def callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data.split("_")
-
-    if data[0] == "pr":  # private answer
-        task_id = int(data[1])
-        chosen = int(data[2])
-        user_id = int(data[3])
-        user = get_user(user_id)
-
-        task = next((t for t in TASKS if t["id"] == task_id), None)
-        if not task:
-            return
-
-        if task_id in answered_questions[user_id]:
-            await query.edit_message_text("سبق وجاوبت على السؤال ده! ✅")
-            return
-
-        answered_questions[user_id].add(task_id)
-        correct = task["correct"]
-
-        if chosen == correct:
-            user["score"] += 1
-            user["task_index"] += 1
-            next_task_index = user["task_index"]
-            result = f"✅ *إجابة صح!* نقطتك: {user['score']}\n\n"
-            if next_task_index < len(TASKS):
-                next_task = TASKS[next_task_index]
-                result += f"🎯 التاسك الجاي:\n*{next_task['title']}*\n🔗 [افتح الفيديو]({next_task['url']})\n\nبعد ما تخلص ابعت /done"
-            else:
-                result += "🎉 مبروك! خلصت المنهج كامل!"
-        else:
-            result = f"❌ *إجابة غلط!*\nالإجابة الصح: *{task['options'][correct]}*\n\nراجع الفيديو وحاول تاني مع /done"
-
-        await query.edit_message_text(result, parse_mode="Markdown")
-
-    elif data[0] == "ch":  # channel answer
-        task_id = int(data[1])
-        chosen = int(data[2])
-        task = next((t for t in TASKS if t["id"] == task_id), None)
-        if not task:
-            return
-        correct = task["correct"]
-        if chosen == correct:
-            await query.answer("✅ إجابة صح! 🎉", show_alert=True)
-        else:
-            await query.answer(f"❌ غلط! الصح: {task['options'][correct]}", show_alert=True)
-
-# ─── /score ───
-async def score(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user = get_user(user_id)
-    name = update.effective_user.first_name or "أنت"
+async def score_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    uid = update.effective_user.id
+    user = get_user(uid)
+    name = update.effective_user.first_name or "انت"
     completed = user["task_index"]
     total = len(TASKS)
-    sc = user["score"]
     pct = int((completed / total) * 100) if total > 0 else 0
     bar = "█" * (pct // 10) + "░" * (10 - pct // 10)
+    await update.message.reply_text(
+        f"تقدمك في Hospitalova Metrics\n\n{name}\n{bar} {pct}%\n\n"
+        f"تاسكات منجزة: {completed}/{total}\nنقاط: {user['score']}/{total}"
+    )
 
-    msg = f"""📊 *تقدمك في Hospitalova Metrics*
-
-👤 {name}
-{bar} {pct}%
-
-✅ تاسكات منجزة: {completed}/{total}
-⭐ نقاط: {sc}/{total}
-
-{'🎉 خلصت المنهج كامل!' if completed >= total else f'🎯 التاسك الجاي: #{completed + 1}'}"""
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-# ─── /leaderboard ───
-async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def leaderboard_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not user_data:
-        await update.message.reply_text("لا يوجد أعضاء بعد!")
+        await update.message.reply_text("لا يوجد اعضاء بعد!")
         return
     sorted_users = sorted(user_data.items(), key=lambda x: x[1]["score"], reverse=True)[:10]
-    medals = ["🥇", "🥈", "🥉"] + ["🏅"] * 7
-    msg = "🏆 *Leaderboard — Hospitalova Metrics*\n\n"
+    medals = ["1","2","3","4","5","6","7","8","9","10"]
+    msg = "Leaderboard - Hospitalova Metrics\n\n"
     for i, (uid, data) in enumerate(sorted_users):
-        name = data.get("name") or f"User {uid}"
-        msg += f"{medals[i]} {name} — {data['score']} نقطة\n"
-    await update.message.reply_text(msg, parse_mode="Markdown")
+        msg += f"{medals[i]}. {data.get('name','User')} - {data['score']} نقطة\n"
+    await update.message.reply_text(msg)
 
-# ─── SCHEDULER ───
-async def scheduler(app):
-    bot = app.bot
-    task_index = [0]  # مؤشر التاسك الحالي للقناة
+async def callback_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    parts = query.data.split("_")
+
+    if parts[0] == "pr":
+        task_id, chosen, uid = int(parts[1]), int(parts[2]), int(parts[3])
+        user = get_user(uid)
+        task = next((t for t in TASKS if t["id"] == task_id), None)
+        if not task:
+            return
+        if task_id in answered[uid]:
+            await query.edit_message_text("سبق وجاوبت على السؤال ده!")
+            return
+        answered[uid].add(task_id)
+        if chosen == task["correct"]:
+            user["score"] += 1
+            user["task_index"] += 1
+            idx = user["task_index"]
+            result = f"اجابة صح! نقطتك: {user['score']}\n\n"
+            if idx < len(TASKS):
+                nt = TASKS[idx]
+                result += f"التاسك الجاي:\n{nt['title']}\n{nt['url']}\n\nابعت /done لما تخلص"
+            else:
+                result += "مبروك! خلصت المنهج كامل!"
+        else:
+            result = f"غلط!\nالصح: {task['options'][task['correct']]}\n\nراجع الفيديو وابعت /done تاني"
+        await query.edit_message_text(result)
+
+    elif parts[0] == "ch":
+        task_id, chosen = int(parts[1]), int(parts[2])
+        task = next((t for t in TASKS if t["id"] == task_id), None)
+        if not task:
+            return
+        if chosen == task["correct"]:
+            await query.answer("اجابة صح!", show_alert=True)
+        else:
+            await query.answer(f"غلط! الصح: {task['options'][task['correct']]}", show_alert=True)
+
+async def scheduler(app: Application):
+    task_index = [0]
     question_pending = [False]
+    last_task_day = [None]
 
     while True:
         now = datetime.now(EGYPT_TZ)
-        weekday = now.weekday()  # 0=Mon, 4=Fri, 5=Sat
-        hour, minute = now.hour, now.minute
+        weekday = now.weekday()
+        today = now.date()
 
-        # أيام التاسك: اتنين(0), جمعة(4), سبت(5) — الساعة 00:00
-        if weekday in [0, 4, 5] and hour == 0 and minute == 0:
-            if not question_pending[0]:
-                await send_task_to_channel(bot, task_index[0])
+        if weekday in [0, 4, 5] and now.hour == 0 and now.minute == 0 and last_task_day[0] != today:
+            if task_index[0] < len(TASKS):
+                task = TASKS[task_index[0]]
+                msg = (f"Hospitalova Metrics - تاسك #{task['id']}\n\n"
+                       f"{task['phase']}\n{task['title']}\n{task['channel']}\n\n"
+                       f"{task['desc']}\n\n{task['url']}\n\nالسؤال هييجي بعد يومين!")
+                await app.bot.send_message(chat_id=CHANNEL_ID, text=msg)
+                last_task_day[0] = today
                 question_pending[0] = True
-                await asyncio.sleep(61)
-                continue
 
-        # بعد يومين من التاسك — نبعت السؤال
-        # (هنا بنبعت السؤال في نفس اليوم بعد 48 ساعة)
-        if weekday in [2, 0, 1] and hour == 0 and minute == 0 and question_pending[0]:
-            await send_question_to_channel(bot, task_index[0])
-            task_index[0] += 1
-            question_pending[0] = False
-            await asyncio.sleep(61)
-            continue
+        if question_pending[0] and weekday in [2, 0, 1] and now.hour == 0 and now.minute == 0:
+            if task_index[0] < len(TASKS):
+                task = TASKS[task_index[0]]
+                keyboard = [[InlineKeyboardButton(f"{i+1}. {opt}", callback_data=f"ch_{task['id']}_{i}")] for i, opt in enumerate(task["options"])]
+                await app.bot.send_message(
+                    chat_id=CHANNEL_ID,
+                    text=f"سؤال على التاسك #{task['id']}\n\n{task['question']}\n\nاختار الاجابة:",
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                task_index[0] += 1
+                question_pending[0] = False
 
         await asyncio.sleep(30)
 
-# ─── MAIN ───
-def main():
-    app = Application.builder().token(TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("done", done))
-    app.add_handler(CommandHandler("score", score))
-    app.add_handler(CommandHandler("leaderboard", leaderboard))
-    app.add_handler(CallbackQueryHandler(callback))
+async def post_init(app: Application) -> None:
+    asyncio.ensure_future(scheduler(app))
 
-    loop = asyncio.get_event_loop()
-    loop.create_task(scheduler(app))
-    app.run_polling()
+def main():
+    app = Application.builder().token(TOKEN).post_init(post_init).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("done", done_cmd))
+    app.add_handler(CommandHandler("score", score_cmd))
+    app.add_handler(CommandHandler("leaderboard", leaderboard_cmd))
+    app.add_handler(CallbackQueryHandler(callback_handler))
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
